@@ -68,8 +68,15 @@ jobs:
         SOURCE_REPO="${{ github.event.client_payload.source_repo || inputs.source_repo }}"
         GIT_REF="${{ github.event.client_payload.git_ref || inputs.git_ref }}"
         
-        # Clone with specific ref
-        git clone https://github.com/${SOURCE_REPO}.git source-code
+        # Clone with authentication for private repository
+        if [ -z "${{ secrets.CROSS_REPO_TOKEN }}" ]; then
+          echo "❌ CROSS_REPO_TOKEN secret not found!"
+          echo "Please add the PAT to repository secrets: Settings → Secrets → Actions → New repository secret"
+          echo "Name: CROSS_REPO_TOKEN"
+          echo "Value: Your Personal Access Token with 'repo' and 'workflow' scopes"
+          exit 1
+        fi
+        git clone https://x-access-token:${{ secrets.CROSS_REPO_TOKEN }}@github.com/${SOURCE_REPO}.git source-code
         cd source-code
         git checkout ${GIT_REF}
         
