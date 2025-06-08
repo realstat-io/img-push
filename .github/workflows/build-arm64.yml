@@ -106,10 +106,25 @@ jobs:
         labels: ${{ steps.meta.outputs.labels }}
         cache-from: type=gha
         cache-to: type=gha,mode=max
+        provenance: false
+        sbom: false
         build-args: |
           BUILDKIT_INLINE_CACHE=1
           GOPROXY=https://proxy.golang.org,direct
           GOSUMDB=sum.golang.org
+
+    - name: Verify Image Platform
+      run: |
+        echo "🔍 Verifying image platform metadata..."
+        IMAGE_TAG="${{ github.event.client_payload.image_tag || inputs.image_tag }}"
+        
+        # Inspect the main image
+        echo "📊 Inspecting image: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${IMAGE_TAG}"
+        docker buildx imagetools inspect ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${IMAGE_TAG}
+        
+        echo ""
+        echo "📊 Inspecting ARM64-specific image: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:arm64-${IMAGE_TAG}"
+        docker buildx imagetools inspect ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:arm64-${IMAGE_TAG}
 
     - name: ARM64 Build Complete
       run: |
