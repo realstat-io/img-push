@@ -60,7 +60,7 @@ jobs:
       with:
         registry: ${{ env.REGISTRY }}
         username: ${{ github.actor }}
-        password: ${{ secrets.GITHUB_TOKEN }}
+        password: ${{ secrets.CROSS_REPO_TOKEN }}
 
     - name: Clone Source Repository
       run: |
@@ -92,6 +92,7 @@ jobs:
         tags: |
           type=raw,value=${{ github.event.client_payload.image_tag || inputs.image_tag }}
           type=raw,value=arm64-${{ github.event.client_payload.image_tag || inputs.image_tag }}
+          type=raw,value=latest,enable={{is_default_branch}}
           type=sha,prefix=arm64-{{branch}}-
 
     - name: Build ARM64 Image (FAST!)
