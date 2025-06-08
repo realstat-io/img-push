@@ -1,4 +1,4 @@
-name: 🚀 ARM64 Image Builder (Public Repo)
+name: ARM64 Image Builder
 
 on:
   repository_dispatch:
@@ -28,43 +28,43 @@ env:
 
 jobs:
   build-arm64:
-    name: 🏗️ Build ARM64 Images (Fast!)
-    runs-on: ubuntu-24.04-arm  
+    name: Build ARM64 Images (Fast!)
+    runs-on: ubuntu-24.04-arm
     timeout-minutes: 15
     permissions:
       contents: read
       packages: write
 
     steps:
-    - name: 🚀 ARM64 Build Started
+    - name: ARM64 Build Started
       run: |
         echo "========================================="
-        echo "🚀 ARM64 Image Build on Public Repo"
+        echo "ARM64 Image Build on Public Repo"
         echo "========================================="
-        echo "📅 Timestamp: $(date)"
-        echo "🖥️ Runner: ubuntu-24.04-arm (FREE ARM64!)"
-        echo "📦 Source: ${{ github.event.client_payload.source_repo || inputs.source_repo }}"
-        echo "🎯 Git Ref: ${{ github.event.client_payload.git_ref || inputs.git_ref }}"
-        echo "🏷️ Image Tag: ${{ github.event.client_payload.image_tag || inputs.image_tag }}"
-        echo "📁 Dockerfile: ${{ github.event.client_payload.dockerfile_path || inputs.dockerfile_path }}"
-        echo "⚡ Expected Time: ~2-3 minutes (vs 45 min on emulation!)"
+        echo "Timestamp: $(date)"
+        echo "Runner: ubuntu-24.04-arm (FREE ARM64!)"
+        echo "Source: ${{ github.event.client_payload.source_repo || inputs.source_repo }}"
+        echo "Git Ref: ${{ github.event.client_payload.git_ref || inputs.git_ref }}"
+        echo "Image Tag: ${{ github.event.client_payload.image_tag || inputs.image_tag }}"
+        echo "Dockerfile: ${{ github.event.client_payload.dockerfile_path || inputs.dockerfile_path }}"
+        echo "Expected Time: ~2-3 minutes (vs 45 min on emulation!)"
         echo "========================================="
 
-    - name: 🛠️ Set up Docker Buildx
+    - name: Set up Docker Buildx
       uses: docker/setup-buildx-action@v3
       with:
         platforms: linux/arm64
 
-    - name: 🔐 Log in to Container Registry
+    - name: Log in to Container Registry
       uses: docker/login-action@v3
       with:
         registry: ${{ env.REGISTRY }}
         username: ${{ github.actor }}
         password: ${{ secrets.GITHUB_TOKEN }}
 
-    - name: 📥 Clone Source Repository
+    - name: Clone Source Repository
       run: |
-        echo "📥 Cloning source repository..."
+        echo "Cloning source repository..."
         SOURCE_REPO="${{ github.event.client_payload.source_repo || inputs.source_repo }}"
         GIT_REF="${{ github.event.client_payload.git_ref || inputs.git_ref }}"
         
@@ -73,11 +73,11 @@ jobs:
         cd source-code
         git checkout ${GIT_REF}
         
-        echo "✅ Cloned ${SOURCE_REPO} at ${GIT_REF}"
-        echo "📋 Commit info:"
+        echo "Cloned ${SOURCE_REPO} at ${GIT_REF}"
+        echo "Commit info:"
         git log -1 --pretty=format:"  - Hash: %H%n  - Author: %an%n  - Date: %ad%n  - Message: %s" --date=short
 
-    - name: 🏷️ Extract metadata
+    - name: Extract metadata
       id: meta
       uses: docker/metadata-action@v5
       with:
@@ -87,7 +87,7 @@ jobs:
           type=raw,value=arm64-${{ github.event.client_payload.image_tag || inputs.image_tag }}
           type=sha,prefix=arm64-{{branch}}-
 
-    - name: 🚀 Build ARM64 Image (FAST!)
+    - name: Build ARM64 Image (FAST!)
       uses: docker/build-push-action@v6
       with:
         context: ./source-code
@@ -103,43 +103,18 @@ jobs:
           GOPROXY=https://proxy.golang.org,direct
           GOSUMDB=sum.golang.org
 
-    - name: 🎉 ARM64 Build Complete
+    - name: ARM64 Build Complete
       run: |
         echo "========================================="
-        echo "🎉 ARM64 Build Complete in Public Repo!"
+        echo "ARM64 Build Complete in Public Repo!"
         echo "========================================="
-        echo "📦 Images Built:"
+        echo "Images Built:"
         echo "${{ steps.meta.outputs.tags }}" | sed 's/^/  - /'
         echo ""
-        echo "🏗️ Architecture: linux/arm64 (Native, no emulation!)"
-        echo "⚡ Build Time: Much faster than 45min emulated builds"
-        echo "💰 Cost: FREE (public repository ARM runners)"
+        echo "Architecture: linux/arm64 (Native, no emulation!)"
+        echo "Build Time: Much faster than 45min emulated builds"
+        echo "Cost: FREE (public repository ARM runners)"
         echo ""
-        echo "🚀 Ready for deployment:"
+        echo "Ready for deployment:"
         echo "  kubectl set image deployment/your-app container=${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ github.event.client_payload.image_tag || inputs.image_tag }}"
-        echo "========================================"
-
-    - name: 📝 Build Summary
-      run: |
-        cat << 'EOF' >> $GITHUB_STEP_SUMMARY
-        ## 🎉 ARM64 Build Summary
-        
-        | Property | Value |
-        |----------|-------|
-        | 🖥️ Runner | `ubuntu-24.04-arm` (FREE!) |
-        | 📦 Source | `${{ github.event.client_payload.source_repo || inputs.source_repo }}` |
-        | 🎯 Git Ref | `${{ github.event.client_payload.git_ref || inputs.git_ref }}` |
-        | 🏷️ Image Tag | `${{ github.event.client_payload.image_tag || inputs.image_tag }}` |
-        | 🏗️ Architecture | `linux/arm64` |
-        | ⚡ Build Method | Native (no emulation) |
-        
-        ### 📦 Built Images:
-        ```
-        ${{ steps.meta.outputs.tags }}
-        ```
-        
-        ### 🚀 Deployment:
-        ```bash
-        docker pull ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ github.event.client_payload.image_tag || inputs.image_tag }}
-        ```
-        EOF 
+        echo "========================================" 
