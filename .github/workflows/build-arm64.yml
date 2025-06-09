@@ -108,7 +108,6 @@ jobs:
         cache-to: type=gha,mode=max
         provenance: false
         sbom: false
-        outputs: type=image,name=target,annotation-index.org.opencontainers.image.description=ARM64 native build
         build-args: |
           BUILDKIT_INLINE_CACHE=1
           GOPROXY=https://proxy.golang.org,direct
