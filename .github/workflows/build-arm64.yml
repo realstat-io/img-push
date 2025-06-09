@@ -1,4 +1,4 @@
-name: ARM64 Image Builder
+name: ARM64 Image BuilderMore actions
 
 on:
   repository_dispatch:
@@ -90,7 +90,7 @@ jobs:
       with:
         images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
         tags: |
-          type=raw,value=${{ github.event.client_payload.image_tag || inputs.image_tag }}
+
           type=raw,value=arm64-${{ github.event.client_payload.image_tag || inputs.image_tag }}
           type=sha,prefix=arm64-{{branch}}-
 
@@ -119,31 +119,74 @@ jobs:
         echo "🔍 Verifying ARM64 image platform metadata..."
         IMAGE_TAG="${{ github.event.client_payload.image_tag || inputs.image_tag }}"
         
-        echo "📊 Inspecting ARM64 images:"
-        echo "  - Main tag: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${IMAGE_TAG}"
-        docker buildx imagetools inspect ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${IMAGE_TAG}
-        
-        echo ""
-        echo "  - ARM64 specific tag: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:arm64-${IMAGE_TAG}"
+        echo "📊 Inspecting ARM64 image: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:arm64-${IMAGE_TAG}"
         docker buildx imagetools inspect ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:arm64-${IMAGE_TAG}
+
+    - name: Create Multi-Architecture Manifest
+      run: |
+        echo "🔗 Creating multi-architecture manifest..."
+        IMAGE_TAG="${{ github.event.client_payload.image_tag || inputs.image_tag }}"
+        
+        # Wait a moment for AMD64 image to be available (if needed)
+        echo "⏳ Checking if AMD64 image exists..."
+        AMD64_EXISTS=false
+        for i in {1..10}; do
+          if docker buildx imagetools inspect ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${IMAGE_TAG} > /dev/null 2>&1; then
+            AMD64_EXISTS=true
+            echo "✅ AMD64 image found!"
+            break
+          fi
+          echo "⏳ Waiting for AMD64 image... (attempt $i/10)"
+          sleep 30
+        done
+        
+        if [ "$AMD64_EXISTS" = "true" ]; then
+          echo "🔗 Creating multi-arch manifest combining AMD64 and ARM64..."
+          
+          # Create manifest list combining both architectures
+          docker buildx imagetools create \
+            --tag ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${IMAGE_TAG}-multi \
+            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${IMAGE_TAG} \
+            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:arm64-${IMAGE_TAG}
+          
+          # Also create a latest multi-arch if this is main branch
+          if [ "${{ github.event.client_payload.git_ref || inputs.git_ref }}" = "main" ] || [ "${{ github.event.client_payload.git_ref || inputs.git_ref }}" = "${{ github.sha }}" ]; then
+            echo "🔗 Creating latest multi-arch manifest..."
+            docker buildx imagetools create \
+              --tag ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest-multi \
+              ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${IMAGE_TAG} \
+              ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:arm64-${IMAGE_TAG}
+          fi
+          
+          echo "✅ Multi-architecture manifest created!"
+          echo "📊 Inspecting final multi-arch image:"
+          docker buildx imagetools inspect ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${IMAGE_TAG}-multi
+        else
+          echo "⚠️ AMD64 image not found, skipping multi-arch manifest creation"
+          echo "💡 AMD64 and ARM64 images will be available separately:"
+          echo "   - AMD64: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${IMAGE_TAG}" 
+          echo "   - ARM64: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:arm64-${IMAGE_TAG}"
+        fi
 
     - name: ARM64 Build Complete
       run: |
-        echo "========================================="
-        echo "ARM64 Build Complete in Public Repo!"
-        echo "========================================="
-        IMAGE_TAG="${{ github.event.client_payload.image_tag || inputs.image_tag }}"
+@@ -176,19 +136,14 @@
         echo "Images Built:"
         echo "${{ steps.meta.outputs.tags }}" | sed 's/^/  - /'
         echo ""
-        echo "🏗️ ARM64 Images Available:"
-        echo "  - Main tag: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${IMAGE_TAG}"
-        echo "  - ARM64 specific: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:arm64-${IMAGE_TAG}"
+        echo "🏗️ Multi-Architecture Support:"
+        echo "  - AMD64: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${IMAGE_TAG}"
+        echo "  - ARM64: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:arm64-${IMAGE_TAG}"
+        echo "  - Multi-Arch: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${IMAGE_TAG}-multi"
         echo ""
         echo "Architecture: linux/arm64 (Native, no emulation!)"
         echo "Build Time: Much faster than 45min emulated builds"
         echo "Cost: FREE (public repository ARM runners)"
         echo ""
-        echo "🚀 Ready for deployment:"
-        echo "  kubectl set image deployment/your-app container=${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${IMAGE_TAG}"
+        echo "🚀 Ready for deployment (auto-detects architecture):"
+        echo "  kubectl set image deployment/your-app container=${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${IMAGE_TAG}-multi"
+        echo ""
+        echo "Or use architecture-specific images:"
+        echo "  # For ARM64 nodes: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:arm64-${IMAGE_TAG}"
+        echo "  # For AMD64 nodes: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${IMAGE_TAG}"
         echo "========================================" 
